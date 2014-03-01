@@ -9,6 +9,7 @@
 #Simulation Activity#
 #####################
 
+rm(list=ls())
 
 ##### PART 1. SIMULATION SETUP #####
 
@@ -76,8 +77,7 @@ call.voters<-function(n, mu=0, Mu, Mu1, Mu2, Mu3, r=3, sigma1=1, sigma2=1, Sigma
 
 
 ### 3. Write a function such that voters affiliate with the closest of the two parties ###
-#install.packages("pdist")
-#library(pdist)
+
 distance<-function(voters,parties){
   require(pdist)
   mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
@@ -85,7 +85,6 @@ distance<-function(voters,parties){
 }
 
 #This is an example for the distance function
-
 #set.seed(1234)
 #voters <- call.voters(n=10) # from a normal distribution
 #parties <- matrix(rnorm(4), 2, 2) # the row indicates two parties; the column indicates two dimensions
@@ -97,13 +96,13 @@ distance<-function(voters,parties){
 
 visualize<-function(voters,parties){
   affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
-  plot(voters[,1],voters[,2],col=ifelse(affiliate,"red","blue"),pch=20, xlab="Dimension 1", ylab="Dimension 2")  ##plot voters - affiliation with party 1 is blue, party 2 is red
+  plot(voters[,1],voters[,2],col=ifelse(affiliate,"red","blue"),pch=20)  ##plot voters - affiliation with party 1 is blue, party 2 is red
   points(parties[,1],parties[,2],col="black",bg=c("blue","red"),pch=23,cex=2,lwd=2)  ##plot parties as diamonds - party 1 is blue, 2 is red
   abline(h=0)
   abline(v=0)
 }
 
-visualize(voters,parties)
+
 
 ##### PART 2. GET THINGS MOVING #####
 
@@ -114,7 +113,7 @@ relocate<-function(voters,parties){
   voters.party1<-voters[affiliate==0,]  ##matrix of voters affiliating with party 1
   voters.party2<-voters[affiliate==1,]  ##matrix of voters affiliating with party 2
   newparty1<-c(mean(voters.party1[,1]),mean(voters.party1[,2])) ##reassigns party 1 to mean of supporters along both dimensions
-  newparty2<-c(mean(voters.party2[,1]),mean(voters.party2[,2])) ##reassigns party 2 to mean of supporters along both dimensions
+  newparty2<-c(mean(voters.party2[,1]),mean(voters.party2[,2])) ##reassigns party 1 to mean of supporters along both dimensions
   return(matrix(c(newparty1,newparty2),byrow=TRUE,nrow=2))  ##return matrix of new party - row 1 corresponding to party 1, row 2 to party 2
 }
 
@@ -151,13 +150,11 @@ master<-function(iter=1000,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), Mu3=
                   visualize(voters,parties)  ##visualize iterations in animation
                   parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
                 },img.name="Rplot",overwrite=TRUE)
-    
   }
-  
   return(list(out.mat1,out.mat2))  ##return party positions as list. First element is matrix of party 1's positions, second element is matrix of party 2's
 }
 
-#master()
+
 
 ##### PART 3. EXPLORE THE MODEL #####
 
@@ -197,9 +194,7 @@ master<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), Mu3=
                   visualize(voters,parties)  ##visualize iterations in animation
                   parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
                 },img.name="Rplot",overwrite=TRUE)
-    
   }
-  
   return(list(out.mat1,out.mat2))  ##return party positions as list. First element is matrix of party 1's positions, second element is matrix of party 2's
 }
 
@@ -207,7 +202,7 @@ master<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), Mu3=
 ### 3. Use the expand.grid() function to set up a data frame of possible parameters to explore ###
 
 ## Since there are indefinitely many possible parameters to explore the master function,
-## we limit our cases to "normal" or "uniform", and create a data frame that accommodates different values for "mu", "sigma1", and "sigma2". 
+## we limit our cases to "normal" or "uniform", and create a data frame that accommodates different values for "mu", "sigma1", "sigma2", "a", and "b". 
 
 ## Without a loss of generality, we make each parameter have two possible values.
 ## To increase the number of possible values, we can increase "length.out" below.
@@ -237,7 +232,6 @@ masterParameters<-function(iter=15, n=100, mu, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0)
     out.mat1<-matrix(ncol=2, nrow=iter)  ##matrix for party 1's position at each iteration
     out.mat2<-matrix(ncol=2, nrow=iter)  ##matrix for party 2's positions
     if(iter>15){
-      ##creates animation of first 15 iterations and creates a pdf
       for(i in 1:15){
         out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
         out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
@@ -267,44 +261,81 @@ masterParameters<-function(iter=15, n=100, mu, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0)
 ## But, we found that if n is large enough (say 100), it would be extremely rare (almost zero possibility) to have this kind of situation. 
 
 
-
 ### 4. Use a plot to characterize some comparative static of interest ###
-master<-function(iter=15,n=100, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), Mu3=c(0,0), r=3, sigma1=2, sigma2=2, Sigma=matrix(c(1,0,0,1),nrow=2), a=0, b=1, method="normal",seed=.Random.seed[2]){
+
+## To do this exercise, we can modify the master function to let the output be given by the visualize function.
+## You will find that the visualize function runs in the end of masterCompare 1 and masterCompare2 functions below.
+## Let's deal with a simple case where we fix method="normal" 
+## The comparative static of our interest is to compare different plots resulted from different sets of sigma2.
+## That is, we will make the following two cases be the same only except that 
+## under case 1 (masterCompare1), voters on the second dimension are drawn from N(0,1), while under case 2 (masterCompare2), voters on the second dimension are drawn from N(0,15^2).
+## On the other hand, voters on the first dimension are drawn from the same distribution between (masterCompare1) and (masterCompare1).
+
+masterCompare1<-function(iter=150,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), Mu3=c(0,0), r=3, sigma1=1, sigma2=1, Sigma=matrix(c(1,0,0,1),nrow=2), a=0, b=1, method="normal",seed=.Random.seed[1]){
   set.seed(seed)
   voters<-call.voters(n, mu, Mu, Mu1, Mu2, Mu3, r, sigma1, sigma2, Sigma, a, b, method)  ##sets up random voters with specified method and parameters
   parties<-call.voters(2, mu, Mu, Mu1, Mu2, Mu3, r, sigma1, sigma2, Sigma, a, b, method)  ##sets up 2 random parties with specified method and parameters
   out.mat1<-matrix(ncol=2,nrow=iter)  ##matrix for party 1's position at each iteration
-  out.mat2<-matrix(ncol=2,nrow=iter)
-  output<-array()##matrix for party 2's positions
-  if(iter>15){   ##creates animation of first 15 iterations and creates a pdf
+  out.mat2<-matrix(ncol=2,nrow=iter)  ##matrix for party 2's positions
+  if(iter>15){
     for(i in 1:15){
       out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
       out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
       affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
-      visualize(voters,parties)  ##visualize iterations in animation
       parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
     }
-    
     for(k in 16:iter){  ##continues simulation for remaining iterations
       out.mat1[k,]<-parties[1,]
       out.mat2[k,]<-parties[2,]
       affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
       parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
     }
-  }else{ ##creates animation of all iterations and creates a pdf
+  }else{
     for(i in 1:iter){
       out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
       out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
       affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
-      visualize(voters,parties)  ##visualize iterations in animation
       parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
     }
-    
   }
-  
-  output<-list(out.mat1,out.mat2) 
-  return(output)##return party positions as list. First element is matrix of party 1's positions, second element is matrix of party 2's
+  output<-list(out.mat1,out.mat2)
+  visualize(voters,parties=rbind(output[[1]][iter,], output[[2]][iter,]))
 }
+
+masterCompare2<-function(iter=150,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), Mu3=c(0,0), r=3, sigma1=1, sigma2=15, Sigma=matrix(c(1,0,0,1),nrow=2), a=0, b=1, method="normal",seed=.Random.seed[1]){
+  set.seed(seed)
+  voters<-call.voters(n, mu, Mu, Mu1, Mu2, Mu3, r, sigma1, sigma2, Sigma, a, b, method)  ##sets up random voters with specified method and parameters
+  parties<-call.voters(2, mu, Mu, Mu1, Mu2, Mu3, r, sigma1, sigma2, Sigma, a, b, method)  ##sets up 2 random parties with specified method and parameters
+  out.mat1<-matrix(ncol=2,nrow=iter)  ##matrix for party 1's position at each iteration
+  out.mat2<-matrix(ncol=2,nrow=iter)  ##matrix for party 2's positions
+  if(iter>15){
+    for(i in 1:15){
+      out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
+      out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
+      affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+      parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
+    }
+    for(k in 16:iter){  ##continues simulation for remaining iterations
+      out.mat1[k,]<-parties[1,]
+      out.mat2[k,]<-parties[2,]
+      affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+      parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
+    }
+  }else{
+    for(i in 1:iter){
+      out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
+      out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
+      affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+      parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
+    }
+  }
+  output<-list(out.mat1,out.mat2)
+  visualize(voters,parties=rbind(output[[1]][iter,], output[[2]][iter,]))
+}
+
+par(mfrow=c(1,2))
+masterCompare1()
+masterCompare2()
 
 
 ####EXPAND YOUR MODEL
