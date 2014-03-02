@@ -109,7 +109,7 @@ visualize<-function(voters,parties){
 ## The relocate and master functions below cover all exercises required for PART 2.
 
 relocate<-function(voters,parties){
-  affiliate<-distance.multi(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+  affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
   voters.party1<-voters[affiliate==0,]  ##matrix of voters affiliating with party 1
   voters.party2<-voters[affiliate==1,]  ##matrix of voters affiliating with party 2
   newparty1<-c(mean(voters.party1[,1]),mean(voters.party1[,2])) ##reassigns party 1 to mean of supporters along both dimensions
@@ -339,7 +339,7 @@ masterCompare2()
 
 
 ####EXPAND YOUR MODEL
-master<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), 
+master.multi<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), 
                  Mu3=c(0,0), r=3, sigma1=2, sigma2=2, Sigma=matrix(c(1,0,0,1),nrow=2), 
                  a=0, b=1, method="normal",seed=.Random.seed[2], npar=2){ ##NPAR=Number of parties
   set.seed(seed)
@@ -348,21 +348,17 @@ master<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0),
   #wITH DIFFERENT NUMBER OF PARTIES 
   parties<-call.voters(npar, mu, Mu, Mu1, Mu2, Mu3, r, sigma1, sigma2, Sigma, a, b, method)  ##sets up 2 random parties with specified method and parameters
   require(animation)
-  
-  ###Create multiple matrixes
-  for (i in 1:npart) {
-    assign(paste("out.mat",i,sep=""), matrix(ncol=npart, nrow=iter))
-  }  ##Creates "npart" matrixes
-  output<-array()
+
+  ##DISTANCE WITH MULTI PARTIES
+  distance.multi<-function(voters,parties){
+    require(pdist)
+    mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
+    part.names<-as.character(1:nrow(parties))
+    colnames(mat.distance)<-part.names
+    return(as.numeric(colnames(mat.distance)[apply(mat.distance,1,which.min)]))}
   
   ###VISUALIZE
   visualize.multi<-function(voters,parties){
-    distance.multi<-function(voters,parties){
-      require(pdist)
-      mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
-      part.names<-as.character(1:nrow(parties))
-      colnames(mat.distance)<-part.names
-      return(as.numeric(colnames(mat.distance)[apply(mat.distance,1,which.min)]))}
     #Function to determine affiliation
     affiliate<-distance.multi(voters,parties)  ##returns a vector with the number indicating affiliation
     # Plot voters
@@ -385,33 +381,34 @@ master<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0),
   }
   
   ####ITERATIONS
+out.mats.list<-list()
+for (i in 1:npart){
+  out.mats.list[[i]]<-assign(paste("out.mat",i,sep=""), matrix(ncol=2, nrow=iter))
+}
+for (j in 1:npart){
   if(iter>15){
     saveLatex(expr=   ##creates animation of first 15 iterations and creates a pdf
                 for(i in 1:15){
-                  out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
-                  out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
-                  affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
-                  visualize(voters,parties)  ##visualize iterations in animation
-                  parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
+                  out.mats.list[[j]][i,]<-parties[j,]
+                  affiliate<-distance.multi(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+                  visualize.multi(voters,parties)  ##visualize iterations in animation
+                  parties<-relocate.multi(voters,parties) ##reassign parties to means of voters that supported them
                 },img.name="Rplot",overwrite=TRUE)
     
-    ###ITERATIONS
     for(k in 16:iter){  ##continues simulation for remaining iterations
-      out.mat1[k,]<-parties[1,]
-      out.mat2[k,]<-parties[2,]
-      affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
-      parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
+      out.mats.list[[j]][k,]<-parties[j,]
+      affiliate<-distance.multi(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+      parties<-relocate.multi(voters,parties) ##reassign parties to means of voters that supported them
     }
   }else{
     saveLatex(expr=   ##creates animation of all iterations and creates a pdf
-                for(i in 1:iter){
-                  out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
-                  out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
-                  affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
-                  visualize(voters,parties)  ##visualize iterations in animation
-                  parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
+                for(l in 1:iter){
+                  out.mats.list[[j]][l,]<-parties[j,]
+                  affiliate<-distance.multi(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+                  visualize.multi(voters,parties)  ##visualize iterations in animation
+                  parties<-relocate.multi(voters,parties) ##reassign parties to means of voters that supported them
                 },img.name="Rplot",overwrite=TRUE)
   }
-  return(list(out.mat1,out.mat2))  ##return party positions as list. First element is matrix of party 1's positions, second element is matrix of party 2's
 }
-
+return(out.mats.list)  ##return party positions as list. First element is matrix of party 1's positions, second element is matrix of party 2's
+}
