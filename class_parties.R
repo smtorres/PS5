@@ -632,4 +632,4 @@ if(heur=="predator"){
   }
 }
 }
-master.heuristics(heur="predator")
+master.heuristics(heur="predator", npar=3)
