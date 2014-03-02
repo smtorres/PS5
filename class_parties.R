@@ -513,4 +513,123 @@ master.multi.prob<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c
   return(out.mats.list)  ##return party positions as list. First element is matrix of party 1's positions, second element is matrix of party 2's
 }
 
+#4. Laver (2005) (\Policy and dynamics of political competition") explores several addi-
+#tional heuristics parties might use to choose their position. Add at least one heuristic
+#to the model (i.e, the party heuristic chosen should be a parameter for each party).
+#How does that change the behavior of the model?
 
+###PREDATOR
+master.heuristics<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), 
+                            Mu3=c(0,0), r=3, sigma1=2, sigma2=2, Sigma=matrix(c(1,0,0,1),nrow=2), 
+                            a=0, b=1, method="normal",seed=.Random.seed[2], npar=2, heur="aggregate"){
+#iter<-iter
+  if(heur=="aggregate"){
+  master.multi.prob(iter=iter,n=n, mu=mu, Mu=Mu, Mu1=Mu1, Mu2=Mu2, 
+                    Mu3=Mu3, r=r, sigma1=sigma1, sigma2=sigma2, Sigma=Sigma, 
+                    a=a, b=b, method=method,seed=seed, npar=npar)
+}
+if(heur=="predator"){
+  set.seed(seed)
+  voters<-call.voters(n, mu, Mu, Mu1, Mu2, Mu3, r, sigma1, sigma2, Sigma, a, b, method)  ##sets up random voters with specified method and parameters
+  
+  #wITH DIFFERENT NUMBER OF PARTIES 
+  parties<-call.voters(npar, mu, Mu, Mu1, Mu2, Mu3, r, sigma1, sigma2, Sigma, a, b, method)  ##sets up 2 random parties with specified method and parameters
+  require(animation)
+  
+  ##Distance: Initial position of parties and voters
+  distance.multi.prob<-function(voters,parties){
+    require(pdist)
+    mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
+    part.names<-as.character(1:nrow(parties))
+    colnames(mat.distance)<-part.names
+    min.diff<-function(x){  ##FUNCTION to find the differences between the two lowest values
+      y<-sort(x)    #sort a vector from min to max
+      diff<-abs(y[1]-y[2])   #difference between lowest and second lowest distance
+      if (diff<=0.5){        #Criteria of indifference: difference less than 0.5
+        selec<-y[2]         #Voter voting wrong (voting for his second best option)
+      }
+      if(diff>0.5){          #Voting correctly if difference > 0.5
+        selec<-y[1]
+      }
+      return(selec)
+    }
+    diffs<-cbind(mat.distance,apply(mat.distance, 1, min.diff))  #matrix with the "selected" distance
+    affil<-as.numeric(colnames(diffs)[apply(diffs,1,FUN=function(x) which(x[1:nrow(parties)]==x[nrow(parties)+1]))])
+    return(affil)
+  }
+  ###Winner
+  winner<-colnames(mat.distance)[which.max(table(distance.multi.prob(voters,parties)))]
+  
+  ###VISUALIZE
+  visualize.multi<-function(voters,parties){
+    #Function to determine affiliation
+    affiliate<-distance.multi.prob(voters,parties)  ##returns a vector with the number indicating affiliation
+    # Plot voters
+    col.pal<-rainbow(nrow(parties))
+    palette(col.pal)
+    plot(voters[,1],voters[,2],col=affiliate,pch=20, ,xlim=c(min(voters[,1])-1,max(voters[,1])+1 ), ylim=c(min(voters[,2])-1,max(voters[,2])+1 ))  
+    points(parties[,1],parties[,2],col="black",bg=1:nrow(parties),pch=23,cex=2,lwd=2)  ##plot parties as diamonds - party 1 is blue, 2 is red
+    abline(h=0)
+    abline(v=0)
+  }
+
+  ##RELOCATE
+  relocate.multi<-function(voters,parties){
+    affiliate<-distance.multi.prob(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+    winner<-as.numeric(colnames(mat.distance)[which.max(table(affiliate))])
+  #Distances
+  dist.pred<-function(voters,parties){
+      require(pdist)
+      mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
+      part.names<-as.character(1:nrow(parties))
+      colnames(mat.distance)<-part.names
+      return(mat.distance)
+  }
+   #Distance winner
+  w.dist<-parties[winner,]
+    voters.parties<-new.parties<-list()
+    for (i in 1:npar) {
+      voters.parties[[i]]<-assign(paste("voters.party",i,sep=""), as.matrix(voters[affiliate==i,]))
+      
+      winner<-colnames(mat.distance)[which.max(table(affiliate))]
+      
+      new.parties[[i]]<-assign(paste("newparty",i,sep=""), c((parties[i,1]-(0.5*(parties[i,1]-w.dist[1]))),
+                                                             (parties[i,2]-(0.5*(parties[i,2]-w.dist[2])))))                                                        
+    }
+    return(matrix(unlist(new.parties),byrow=TRUE,ncol=2))  ##return matrix of new party positions (each row represents a party)
+  }
+  ####ITERATIONS
+  out.mats.list<-list()
+  for (i in 1:npar){
+    out.mats.list[[i]]<-assign(paste("out.mat",i,sep=""), matrix(ncol=2, nrow=iter))
+  }
+  if(iter>15){
+    saveLatex(expr=   ##creates animation of first 15 iterations and creates a pdf
+                for(i in 1:15){
+                  for(j in 1:npar){
+                    out.mats.list[[j]][i,]<-parties[j,]}
+                  affiliate<-distance.multi.prob(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+                  visualize.multi(voters,parties)  ##visualize iterations in animation
+                  parties<-relocate.multi(voters,parties) ##reassign parties to means of voters that supported them
+                },img.name="Rplot",overwrite=TRUE)
+    
+    for(k in 16:iter){  ##continues simulation for remaining iterations
+      for(j in 1:npar){
+        out.mats.list[[j]][k,]<-parties[j,]}
+      affiliate<-distance.multi.prob(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+      parties<-relocate.multi(voters,parties) ##reassign parties to means of voters that supported them
+    }
+  }else{
+    saveLatex(expr=   ##creates animation of all iterations and creates a pdf
+                for(l in 1:iter){
+                  for (j in 1:npar){
+                    out.mats.list[[j]][l,]<-parties[j,]}
+                  affiliate<-distance.multi.prob(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+                  visualize.multi(voters,parties)  ##visualize iterations in animation
+                  parties<-relocate.multi(voters,parties) ##reassign parties to means of voters that supported them
+                },img.name="Rplot",overwrite=TRUE)
+    return(out.mats.list)
+  }
+}
+}
+master.heuristics(heur="predator")
