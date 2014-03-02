@@ -339,53 +339,66 @@ masterCompare2()
 
 
 ####EXPAND YOUR MODEL
-master<-function(iter=15,n=100, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), Mu3=c(0,0), r=3, sigma1=2, sigma2=2, Sigma=matrix(c(1,0,0,1),nrow=2), a=0, b=1, method="normal",seed=.Random.seed[2], npart=2){
+master<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0), 
+                 Mu3=c(0,0), r=3, sigma1=2, sigma2=2, Sigma=matrix(c(1,0,0,1),nrow=2), 
+                 a=0, b=1, method="normal",seed=.Random.seed[2], npar=2){ ##NPAR=Number of parties
   set.seed(seed)
   voters<-call.voters(n, mu, Mu, Mu1, Mu2, Mu3, r, sigma1, sigma2, Sigma, a, b, method)  ##sets up random voters with specified method and parameters
-  parties<-call.voters(npart, mu, Mu, Mu1, Mu2, Mu3, r, sigma1, sigma2, Sigma, a, b, method)  ##sets up 2 random parties with specified method and parameters
-##Function adapted to multiple parties
-  distance.multi<-function(voters,parties){
-    require(pdist)
-    mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
-    part.names<-as.character(1:nrow(parties))
-    colnames(mat.distance)<-part.names
-    return(as.numeric(colnames(mio)[apply(mio,1,which.min)]))
-  }
-###Create multiple matrixes
+  
+  #wITH DIFFERENT NUMBER OF PARTIES 
+  parties<-call.voters(npar, mu, Mu, Mu1, Mu2, Mu3, r, sigma1, sigma2, Sigma, a, b, method)  ##sets up 2 random parties with specified method and parameters
+  require(animation)
+  
+  ###Create multiple matrixes
   for (i in 1:npart) {
-  assign(paste("out.mat",i,sep=""), matrix(ncol=npart, nrow=iter))
+    assign(paste("out.mat",i,sep=""), matrix(ncol=npart, nrow=iter))
   }  ##Creates "npart" matrixes
-  output<-array()##matrix for party 2's positions
-
-#####Iterations
-  for (j in 1:npart){
-  if(iter>15){   ##creates animation of first 15 iterations and creates a pdf
-    for(i in 1:15){
-      out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
-      out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
-      affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
-      #visualize(voters,parties)  ##visualize iterations in animation
-      #parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
-    }
+  output<-array()
+  
+  ###VISUALIZE
+  visualize<-function(voters,parties){
+    distance.multi<-function(voters,parties){
+      require(pdist)
+      mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
+      part.names<-as.character(1:nrow(parties))
+      colnames(mat.distance)<-part.names
+      return(as.numeric(colnames(mat.distance)[apply(mat.distance,1,which.min)]))}
+    #Function to determine affiliation
+    affiliate<-distance.multi(voters,parties)  ##returns a vector with the number indicating affiliation
+    # Plot voters
+    plot(voters[,1],voters[,2],col=affiliate,pch=20, ,xlim=c(min(voters[,1])-1,max(voters[,1])+1 ), ylim=c(min(voters[,2])-1,max(voters[,2])+1 ))  
+    points(parties[,1],parties[,2],col="black",bg=1:nrow(parties),pch=23,cex=2,lwd=2)  ##plot parties as diamonds - party 1 is blue, 2 is red
+    abline(h=0)
+    abline(v=0)
+  }
+  
+  if(iter>15){
+    saveLatex(expr=   ##creates animation of first 15 iterations and creates a pdf
+                for(i in 1:15){
+                  out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
+                  out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
+                  affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+                  visualize(voters,parties)  ##visualize iterations in animation
+                  parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
+                },img.name="Rplot",overwrite=TRUE)
     
+    ###ITERATIONS
     for(k in 16:iter){  ##continues simulation for remaining iterations
       out.mat1[k,]<-parties[1,]
       out.mat2[k,]<-parties[2,]
       affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
       parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
     }
-  }else{ ##creates animation of all iterations and creates a pdf
-    for(i in 1:iter){
-      out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
-      out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
-      affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
-      visualize(voters,parties)  ##visualize iterations in animation
-      parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
-    }
-    
+  }else{
+    saveLatex(expr=   ##creates animation of all iterations and creates a pdf
+                for(i in 1:iter){
+                  out.mat1[i,]<-parties[1,]  ##assigns i-th row of output matrix for party 1 the i-th party position
+                  out.mat2[i,]<-parties[2,]  ##assigns i-th row of output matrix for party 2 the i-th party position
+                  affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+                  visualize(voters,parties)  ##visualize iterations in animation
+                  parties<-relocate(voters,parties) ##reassign parties to means of voters that supported them
+                },img.name="Rplot",overwrite=TRUE)
   }
-  
-  output<-list(out.mat1,out.mat2) 
-  return(output)##return party positions as list. First element is matrix of party 1's positions, second element is matrix of party 2's
+  return(list(out.mat1,out.mat2))  ##return party positions as list. First element is matrix of party 1's positions, second element is matrix of party 2's
 }
 
