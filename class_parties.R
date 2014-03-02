@@ -109,7 +109,7 @@ visualize<-function(voters,parties){
 ## The relocate and master functions below cover all exercises required for PART 2.
 
 relocate<-function(voters,parties){
-  affiliate<-distance(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+  affiliate<-distance.multi(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
   voters.party1<-voters[affiliate==0,]  ##matrix of voters affiliating with party 1
   voters.party2<-voters[affiliate==1,]  ##matrix of voters affiliating with party 2
   newparty1<-c(mean(voters.party1[,1]),mean(voters.party1[,2])) ##reassigns party 1 to mean of supporters along both dimensions
@@ -356,7 +356,7 @@ master<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0),
   output<-array()
   
   ###VISUALIZE
-  visualize<-function(voters,parties){
+  visualize.multi<-function(voters,parties){
     distance.multi<-function(voters,parties){
       require(pdist)
       mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
@@ -372,6 +372,19 @@ master<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c(0,0),
     abline(v=0)
   }
   
+  ##RELOCATE
+  relocate.multi<-function(voters,parties){
+    affiliate<-distance.multi(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+    voters.parties<-new.parties<-list()
+    for (i in 1:npart) {
+      voters.parties[[i]]<-assign(paste("voters.party",i,sep=""), as.matrix(voters[affiliate==i,]))
+      new.parties[[i]]<-assign(paste("newparty",i,sep=""), c(mean(voters.parties[[i]][,1]),
+                                                             mean(voters.parties[[i]][,2])))
+    }
+    return(matrix(unlist(new.parties),byrow=TRUE,ncol=2))  ##return matrix of new party - row 1 corresponding to party 1, row 2 to party 2
+  }
+  
+  ####ITERATIONS
   if(iter>15){
     saveLatex(expr=   ##creates animation of first 15 iterations and creates a pdf
                 for(i in 1:15){
