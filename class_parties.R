@@ -442,7 +442,7 @@ master.multi.prob<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c
       y<-sort(x)    #sort a vector from min to max
       diff<-abs(y[1]-y[2])   #difference between lowest and second lowest distance
       if (diff<=0.5){        #Criteria of indifference: difference less than 0.5
-        selec<-y[2]  #Voter voting wrong (voting for his second best option)
+        selec<-sample(c(y[1],y[2]),1)  #Voter voting wrong (voting for his second best option)
       }
       if(diff>0.5){          #Voting correctly if difference > 0.5
         selec<-y[1]
@@ -497,7 +497,7 @@ master.multi.prob<-function(iter=1500,n=1000, mu=0, Mu=c(0,0), Mu1=c(0,0), Mu2=c
     for(k in 16:iter){  ##continues simulation for remaining iterations
       for(j in 1:npar){
         out.mats.list[[j]][k,]<-parties[j,]}
-      affiliate<-distance.multi(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
+      affiliate<-distance.multi.prob(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
       parties<-relocate.multi(voters,parties) ##reassign parties to means of voters that supported them
     }
   }else{
@@ -537,28 +537,39 @@ if(heur=="predator"){
   require(animation)
   
   ##Distance: Initial position of parties and voters
+  #### Distance with multiple parties and probabilisti voting
   distance.multi.prob<-function(voters,parties){
     require(pdist)
     mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
     part.names<-as.character(1:nrow(parties))
     colnames(mat.distance)<-part.names
     min.diff<-function(x){  ##FUNCTION to find the differences between the two lowest values
-      y<-sort(x)    #sort a vector from min to max
-      diff<-abs(y[1]-y[2])   #difference between lowest and second lowest distance
-      if (diff<=0.5){        #Criteria of indifference: difference less than 0.5
-        selec<-y[2]         #Voter voting wrong (voting for his second best option)
+      y<-sort(x)              #sort a vector from min to max
+      diff<-abs(y[1]-y[2])    #difference between lowest and second lowest distance
+      if (diff<=0.5){         #Criteria of indifference: difference less than 0.5
+        selec<-sample(c(y[1],y[2]),1)   #Voter voting wrong (voting randomly from his two best options)
       }
-      if(diff>0.5){          #Voting correctly if difference > 0.5
+      if(diff>0.5){                 #Voting correctly if difference > 0.5
         selec<-y[1]
       }
       return(selec)
     }
     diffs<-cbind(mat.distance,apply(mat.distance, 1, min.diff))  #matrix with the "selected" distance
-    affil<-as.numeric(colnames(diffs)[apply(diffs,1,FUN=function(x) which(x[1:nrow(parties)]==x[nrow(parties)+1]))])
+    #Name of the party selected 
+    library(plyr)
+    affil<-as.numeric(colnames(diffs)[aaply(.data=diffs,.mar=1,.fun=function(x) which(x[1:nrow(parties)]==x[nrow(parties)+1]))])
     return(affil)
   }
-  ###Winner
+  #Distances
+  dist.pred<-function(voters,parties){
+  require(pdist)
+  mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
+  part.names<-as.character(1:nrow(parties))
+  colnames(mat.distance)<-part.names
+  ###Winner (name of the party with the highest number of voters )
   winner<-colnames(mat.distance)[which.max(table(distance.multi.prob(voters,parties)))]
+  return(mat.distance)
+  }
   
   ###VISUALIZE
   visualize.multi<-function(voters,parties){
@@ -575,23 +586,16 @@ if(heur=="predator"){
 
   ##RELOCATE
   relocate.multi<-function(voters,parties){
-    affiliate<-distance.multi.prob(voters,parties)  ##returns a vector with 0's indicating affiliation with party 1
-    winner<-as.numeric(colnames(mat.distance)[which.max(table(affiliate))])
-  #Distances
-  dist.pred<-function(voters,parties){
-      require(pdist)
-      mat.distance<-as.matrix(pdist(voters, parties))  ##matrix of distances from voter to party - rows are voters, columns are parties
-      part.names<-as.character(1:nrow(parties))
-      colnames(mat.distance)<-part.names
-      return(mat.distance)
-  }
+    affiliate<-distance.multi.prob(voters,parties)  ##returns a vector with the number of party selected by the voter
+    mat.distance2<-dist.pred(voters,parties)
+    winner<-as.numeric(colnames(mat.distance2)[which.max(table(affiliate))]) #winner party with the highest proportion
    #Distance winner
   w.dist<-parties[winner,]
     voters.parties<-new.parties<-list()
     for (i in 1:npar) {
       voters.parties[[i]]<-assign(paste("voters.party",i,sep=""), as.matrix(voters[affiliate==i,]))
       
-      winner<-colnames(mat.distance)[which.max(table(affiliate))]
+      winner<-colnames(mat.distance2)[which.max(table(affiliate))]
       
       new.parties[[i]]<-assign(paste("newparty",i,sep=""), c((parties[i,1]-(0.5*(parties[i,1]-w.dist[1]))),
                                                              (parties[i,2]-(0.5*(parties[i,2]-w.dist[2])))))                                                        
@@ -633,3 +637,4 @@ if(heur=="predator"){
 }
 }
 master.heuristics(heur="predator", npar=3)
+
